@@ -1,0 +1,450 @@
+---
+title: "dv project review"
+author: "19BCE1437 - B. Yeshaswini, 19BCE1667 - Baalamurgan KA"
+date: "22/02/2022"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(biglm)
+library(broom)
+library(reshape2)
+library(RColorBrewer)
+library(corrgram)
+library(sigr)
+
+library(e1071)
+library(caTools)
+library(class)
+library(rmeta)
+library(TTR)
+library(tidyverse)
+library(fpp)
+library(forecast)
+library(backtest)
+library(quantmod)
+library(lubridate)
+```
+
+```{r}
+mydata <- read.csv("C:\\Users\\Yeshaswini\\OneDrive\\Desktop\\College\\sem 6\\DATA VISUALIZATION\\MALE.csv")
+mydata <- na.omit(mydata)
+mydata1 <- read.csv("C:\\Users\\Yeshaswini\\OneDrive\\Desktop\\College\\sem 6\\DATA VISUALIZATION\\FEMALE.csv")
+mydata1 <- na.omit(mydata1)
+
+colnames(mydata)[colnames(mydata) %in% c("X1991", "X1992","X1993", "X1994","X1995", "X1996","X1997", "X1998","X1999", "X2000","X2001", "X2002","X2003","X2004", "X2005","X2006","X2007", "X2008","X2009","X2010", "X2011","X2012","X2013","X2014","X2015","X2016","X2017","X2018","X2019")] <- c("1991", "1992","1993","1994","1995","1996","1997","1998","1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019")
+
+head(mydata)
+
+colnames(mydata1)[colnames(mydata1) %in% c("X1991", "X1992","X1993", "X1994","X1995", "X1996","X1997", "X1998","X1999", "X2000","X2001", "X2002","X2003","X2004", "X2005","X2006","X2007", "X2008","X2009","X2010", "X2011","X2012","X2013","X2014","X2015","X2016","X2017","X2018","X2019")] <- c("1991", "1992","1993","1994","1995","1996","1997","1998","1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019")
+```
+
+
+##BASIC STRUCTURES OF DATA
+```{r}
+str(mydata)
+dim(mydata)
+summary(mydata)
+```
+
+
+##BASIC EXPLORATION OF DATA
+```{r}
+##Working on TOP 5 countries
+Code = "SGP"
+particularcountry <- filter(mydata,Country.Code == Code)
+#%>% summarise_if(is.numeric, mean)
+
+particularcountryplot <- gather(particularcountry, key="Year", value="Unemployment_Rate",c(3:ncol(particularcountry))) 
+
+head(particularcountryplot)
+
+
+
+ggplot(particularcountryplot,aes(x=Year, y=Unemployment_Rate))+
+  geom_col(stat='identity', fill="dark red")+
+  scale_x_discrete(guide = guide_axis(check.overlap = TRUE))+
+   labs(title="Country wise unemployment rate distribution")
+
+
+  
+heatmap(as.matrix(mydata[3:7]))
+image(as.matrix(mydata[3:8]))
+
+
+
+plot(mydata[3:7],col=brewer.pal(3,"Set1"))
+```
+
+
+```{r}
+#MALE
+mydataplot <- gather(mydata, key="Year", value="Unemployent.rate",c(3:ncol(mydata)))
+write.csv(mydataplot,"C:\\Users\\Yeshaswini\\Documents\\maledataplot.csv",row.names=FALSE)
+head(mydataplot)
+
+#FEMALE
+mydataplot1 <- gather(mydata1, key="Year", value="Unemployent.rate",c(3:ncol(mydata1)))
+write.csv(mydataplot1,"C:\\Users\\Yeshaswini\\Documents\\femaledataplot.csv",row.names=FALSE)
+head(mydataplot1)
+```
+
+
+```{r}
+#MALE
+#Considering top 20 countries for Unemployment rate
+lastcountries <- mydataplot %>% arrange(desc(Unemployent.rate))
+lastcountries <- unique(lastcountries$ï..Country.Name)
+lastcountriesnames <- lastcountries[20:length(lastcountries)]
+
+#Removing the countries except top 20 countries
+top20unemploymentdata_male <- mydataplot%>%select("ï..Country.Name","Year","Unemployent.rate")
+for (countrypos in 1:length(lastcountriesnames)) {
+  countrycheck = lastcountriesnames[countrypos]
+  top20unemploymentdata_male <- top20unemploymentdata_male[!(top20unemploymentdata_male$ï..Country.Name == countrycheck[1]),]
+}
+head(top20unemploymentdata_male)
+```
+
+```{r}
+#FEMALE
+#Considering top 20 countries for Unemployment rate
+lastcountries <- mydataplot1 %>% arrange(desc(Unemployent.rate))
+lastcountries <- unique(lastcountries$ï..Country.Name)
+lastcountriesnames <- lastcountries[20:length(lastcountries)]
+
+#Removing the countries except top 20 countries
+top20unemploymentdata_female <- mydataplot1%>%select("ï..Country.Name","Year","Unemployent.rate")
+for (countrypos in 1:length(lastcountriesnames)) {
+  countrycheck = lastcountriesnames[countrypos]
+  top20unemploymentdata_female <- top20unemploymentdata_female[!(top20unemploymentdata_female$ï..Country.Name == countrycheck[1]),]
+}
+head(top20unemploymentdata_female)
+
+ggplot(top20unemploymentdata_male, aes(x=Year, y=Unemployent.rate)) +
+  geom_bar(stat='identity',color = "pink", fill="yellow") +
+  facet_wrap(~ï..Country.Name)+
+  labs(title = paste("Unemployment rate from 1991 - 2017 across top 20 countries"))
+```
+
+
+```{r}
+##Unemployment rate in 1991 vs 2019
+unemploymentdatacompareyearwise_female <- top20unemploymentdata_male
+unemploymentdatacompareyearwise_female <- unemploymentdatacompareyearwise_female %>% filter(grepl('1991|2019', Year))
+
+ggplot(unemploymentdatacompareyearwise_female, aes(x = ï..Country.Name, y = Unemployent.rate,label = Year)) +
+    geom_point(aes(color = factor(Year)))+
+    geom_text(hjust = 0, nudge_x = 0.05,check_overlap = TRUE)+
+    scale_x_discrete(guide = guide_axis(check.overlap = TRUE))+
+    theme(axis.text.x = element_text(angle = 45, hjust=1))+
+    labs(title = paste("Comparison of unemployment rate across top 20 countries in 1991 vs 2019."))
+```
+```{r}
+ggplot(top20unemploymentdata_female, aes(x=Year, y=Unemployent.rate)) +
+  geom_bar(stat='identity',color = "pink", fill="yellow") +
+  facet_wrap(~ï..Country.Name)+
+  labs(title = paste("Unemployment rate from 1991 - 2017 across top 20 countries"))
+
+##Unemployment rate in 1991 vs 2019
+unemploymentdatacompareyearwise_male <- top20unemploymentdata_female
+unemploymentdatacompareyearwise_male <- unemploymentdatacompareyearwise_male %>% filter(grepl('1991|2019', Year))
+
+ggplot(unemploymentdatacompareyearwise_male, aes(x = ï..Country.Name, y = Unemployent.rate,label = Year)) +
+    geom_point(aes(color = factor(Year)))+
+    geom_text(hjust = 0, nudge_x = 0.05,check_overlap = TRUE)+
+    scale_x_discrete(guide = guide_axis(check.overlap = TRUE))+
+    theme(axis.text.x = element_text(angle = 45, hjust=1))+
+    labs(title = paste("Comparison of unemployment rate across top 20 countries in 1991 vs 2019."))
+```
+
+
+```{r}
+male <- read.csv("C:\\Users\\Yeshaswini\\Documents\\maledataplot.csv")
+View(male)
+
+female <- read.csv("C:\\Users\\Yeshaswini\\Documents\\femaledataplot.csv")
+View(female)
+plot(male$Year, male$Unemployent.rate,type = "l", main="Unemployment",xlab="Year", ylab="Unemployment rate" )
+plot(female$Year, female$Unemployent.rate,type = "l", main="Unemployment",xlab="Year", ylab="Unemployment rate" )
+```
+
+```{r}
+#Distribution of all Deaths in India
+Code="IND"
+indiadata <- male[(male$Country.Code==Code),]
+indiadata <- indiadata[(indiadata$Year=="2019"),]
+
+row.names(indiadata) <- indiadata$Year
+indiadata <- indiadata[-1:-3]
+indiadata <- indiadata[-3]
+indiadata <- gather(indiadata, key="Deaths", value="Rate",c(1:ncol(indiadata)))
+```
+
+
+```{r}
+fmla <- female$Unemployent.rate ~ male$Unemployent.rate
+unemployment_model <- lm(fmla, data = mydataplot)
+unemployment_model
+```
+
+## Coeffecients and F
+### Call summary() on unemployment_model to get more details
+
+```{r}
+summary(unemployment_model)
+glance(unemployment_model)
+wrapFTest(unemployment_model)
+summary(female)
+summary(male)
+
+```
+
+## Prediction new data
+### Predict female and male unemployment in the unemployment data set
+```{r}
+mydataplot$prediction <- predict(unemployment_model)
+female$prediction <- predict(unemployment_model)
+male$prediction <- predict(unemployment_model)
+## female
+ggplot(female, aes(x = prediction, y = Unemployent.rate)) + geom_point() + geom_abline(color = 'blue')
+
+## male
+ggplot(male, aes(x = prediction, y = Unemployent.rate)) + geom_point() + geom_abline(color = 'blue')
+
+```
+
+
+## prediction rate for female dataset
+```{r}
+newrates <- data.frame(male = 5)
+newrates
+newdata <- female
+pred <- predict(unemployment_model, newdata = female)
+predict(unemployment_model, newdata)
+```
+
+
+## prediction rate for male dataset
+```{r}
+newrates <- data.frame(male = 5)
+newrates
+newdata <- male
+pred <- predict(unemployment_model, newdata = male)
+predict(unemployment_model, newdata)
+```
+
+
+```{r}
+print(fe_mean <- mean(unemployment_model$female_unemployment))
+```
+
+# KNN - FEMALE
+```{r}
+ts_pdata <- data.frame(female$Unemployent.rate,male$Unemployent.rate)
+ts_pdata
+
+set.seed(1234)
+# Splitting data into train
+# and test data
+split <- sample.split(ts_pdata, SplitRatio = 0.7)
+train_cl <- subset(ts_pdata, split == "TRUE")
+test_cl <- subset(ts_pdata, split == "TRUE")
+train_cl
+# Feature Scaling
+train_scale <- scale(train_cl[, 1, drop = TRUE])
+test_scale <- scale(test_cl[, 1, drop = TRUE])
+test_scale
+train_scale
+# Fitting KNN Model 
+# to training dataset
+
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$male.Unemployent.rate,
+                      k = 2)
+classifier_knn
+```
+
+```{r}
+# Confusion Matrix
+cm <- table(test_cl$male.Unemployent.rate, classifier_knn)
+cm
+  
+# Model Evaluation - Choosing K
+# Calculate out of Sample error
+misClassError <- mean(classifier_knn != test_cl$male.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 3
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$male.Unemployent.rate,
+                      k = 3)
+misClassError <- mean(classifier_knn != test_cl$male.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 5
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$male.Unemployent.rate,
+                      k = 5)
+misClassError <- mean(classifier_knn != test_cl$male.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 7
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$male.Unemployent.rate,
+                      k = 7)
+misClassError <- mean(classifier_knn != test_cl$male.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 15
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$male.Unemployent.rate,
+                      k = 15)
+misClassError <- mean(classifier_knn != test_cl$male.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 19
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$male.Unemployent.rate,
+                      k = 19)
+misClassError <- mean(classifier_knn != test_cl$male.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+```
+
+# KNN-Female
+
+```{r}
+ts_pdata <- data.frame(female$Unemployent.rate,male$Unemployent.rate)
+ts_pdata
+
+set.seed(1234)
+# Splitting data into train
+# and test data
+split <- sample.split(ts_pdata, SplitRatio = 0.7)
+train_cl <- subset(ts_pdata, split == "TRUE")
+test_cl <- subset(ts_pdata, split == "TRUE")
+train_cl
+# Feature Scaling
+train_scale <- scale(train_cl[, 1, drop = TRUE])
+test_scale <- scale(test_cl[, 1, drop = TRUE])
+test_scale
+train_scale
+# Fitting KNN Model 
+# to training dataset
+
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$female.Unemployent.rate,
+                      k = 2)
+classifier_knn
+
+# Confusion Matrix
+cm <- table(test_cl$female.Unemployent.rate, classifier_knn)
+cm
+  
+# Model Evaluation - Choosing K
+# Calculate out of Sample error
+misClassError <- mean(classifier_knn != test_cl$female.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 3
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$female.Unemployent.rate,
+                      k = 3)
+misClassError <- mean(classifier_knn != test_cl$female.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 5
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$female.Unemployent.rate,
+                      k = 5)
+misClassError <- mean(classifier_knn != test_cl$female.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 7
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$female.Unemployent.rate,
+                      k = 7)
+misClassError <- mean(classifier_knn != test_cl$female.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 15
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$female.Unemployent.rate,
+                      k = 15)
+misClassError <- mean(classifier_knn != test_cl$female.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+  
+# K = 19
+classifier_knn <- knn(train = train_scale,
+                      test = test_scale,
+                      cl = train_cl$female.Unemployent.rate,
+                      k = 19)
+misClassError <- mean(classifier_knn != test_cl$female.Unemployent.rate)
+print(paste('Accuracy =', 1-misClassError))
+```
+
+# Time series Forecast - MALE
+```{r}
+male_ts <- aggregate(cbind(Unemployent.rate) ~ Year, data = male, sum)
+ts_pdata <- data.frame(male_ts$Year,male_ts$Unemployent.rate)
+ts_pdata
+
+dt = sort(sample(nrow(ts_pdata), nrow(ts_pdata)*.7))
+dat_train<-ts_pdata[dt,]
+dat_test<-ts_pdata[-dt,]
+dat_train
+ 
+nrow(dat_train); nrow(dat_test)
+data_ts <- ts(dat_train[, 2], start = c(min(male$Year),1), end = c(max(male$Year), 1), frequency = 1)
+ 
+#lines 2 to 4 to find error(tells accuracy)
+mape <- function(actual,pred){
+  mape <- mean(abs((actual - pred)/actual))*100
+  return (mape)
+}
+
+naive_mod <- naive(data_ts, h = 12)
+summary(naive_mod)
+plot(data_ts)
+```
+
+# Time series Forecast - FEMALE
+```{r}
+female_ts <- aggregate(cbind(Unemployent.rate) ~ Year, data = female, sum)
+ts_pdata <- data.frame(female_ts$Year,female_ts$Unemployent.rate)
+ts_pdata
+
+dt = sort(sample(nrow(ts_pdata), nrow(ts_pdata)*.7))
+dat_train<-ts_pdata[dt,]
+dat_test<-ts_pdata[-dt,]
+dat_train
+ 
+nrow(dat_train); nrow(dat_test)
+dat_ts <- ts(dat_train[, 2], start = c(min(male$Year),1), end = c(max(male$Year), 1), frequency = 1)
+ 
+#lines 2 to 4 to find error(tells accuracy)
+mape <- function(actual,pred){
+  mape <- mean(abs((actual - pred)/actual))*100
+  return (mape)
+}
+
+naive_mod <- naive(dat_ts, h = 12)
+summary(naive_mod)
+plot(dat_ts)
+```
